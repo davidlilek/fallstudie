@@ -1,0 +1,3 @@
+read in files from 10x genomics
+https://seurat-notebook-image.readthedocs.io/en/latest/examples/seurat_pbmc_v0.0.1.html
+https://nextjournal.com/mk/seurat-tutorial
