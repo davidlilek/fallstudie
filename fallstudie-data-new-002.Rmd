@@ -132,7 +132,14 @@ pbmc <- RunUMAP(pbmc, dims = 1:10)
 # note that you can set `label = TRUE` or use the LabelClusters function to help label
 # individual clusters
 DimPlot(pbmc, reduction = "umap")
+#UMAPPlot(pbmc)
 #saveRDS(pbmc, file = "./pbmc_tutorial.rds")
+```
+
+```{r}
+#run TSNE
+pbmc <- RunTSNE(pbmc, dims = 1:10)
+TSNEPlot(pbmc)
 ```
 
 # Finding differentially expressed features (cluster biomarkers)
