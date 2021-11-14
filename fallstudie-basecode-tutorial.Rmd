@@ -1,4 +1,4 @@
----
+install---
 title: "Fallstudie Basecode Tutorial"
 author: "Daniel Zimmermann / David Lilek"
 output:
@@ -16,8 +16,6 @@ output:
     code_folding: hide
 ---
 
-# Setup the Seurat Object
-
 ```{r message=FALSE, warning=FALSE}
 ###################
 #load libraries
@@ -25,7 +23,12 @@ output:
 library(dplyr)
 library(Seurat)
 library(patchwork)
+```
 
+
+# Setup the Seurat Object
+
+```{r message=FALSE, warning=FALSE}
 ############################
 #Setup the Seurat Object
 ############################

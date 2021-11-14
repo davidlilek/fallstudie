@@ -23,6 +23,7 @@ output:
 library(dplyr)
 library(Seurat)
 library(patchwork)
+library(ggplot2)
 ```
 
 
@@ -170,12 +171,14 @@ head(cluster5.markers, n = 5)
 pbmc.markers <- FindAllMarkers(pbmc, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
 pbmc.markers %>%
     group_by(cluster) %>%
-    slice_max(n = 2, order_by = avg_log2FC)
+    slice_max(n = 2, order_by = avg_log2FC) -> top2
+top_gene <- top2$gene[seq(1, nrow(top2), 2)]
+top2
 ```
 
-```{r}
-cluster0.markers <- FindMarkers(pbmc, ident.1 = 0, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
-VlnPlot(pbmc, features = c("MS4A1", "CD79A"))
+```{r fig.height=30}
+#cluster0.markers <- FindMarkers(pbmc, ident.1 = 0, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+VlnPlot(pbmc, features = top_gene, ncol = 5)
 
 ```
 
@@ -188,9 +191,9 @@ VlnPlot(pbmc, features = c("NKG7", "PF4"), slot = "counts", log = TRUE)
 
 * Feature plot
 
-```{r}
-FeaturePlot(pbmc, features = c("MS4A1", "GNLY", "CD3E", "CD14", "FCER1A", "FCGR3A", "LYZ", "PPBP",
-    "CD8A"))
+```{r fig.height=30}
+FeaturePlot(pbmc, features = feature_names)
+FeaturePlot(pbmc, features = feature_names, reduction = "tsne")
 ```
 
 * DoHeatmap
