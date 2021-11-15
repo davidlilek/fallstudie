@@ -5,9 +5,7 @@ output:
   html_document:
     df_print: paged
     fig.align: center
-    self_contained: yes
-    fig.height: 4
-    fig.width: 8
+    self_contained: yes 
     theme: united
     toc: yes
     toc_depth: 4
@@ -24,6 +22,7 @@ library(dplyr)
 library(Seurat)
 library(patchwork)
 library(ggplot2)
+library(scCATCH)
 ```
 
 
@@ -103,8 +102,12 @@ print(pbmc[["pca"]], dims = 1:5, nfeatures = 5)
 VizDimLoadings(pbmc, dims = 1:2, reduction = "pca")
 DimPlot(pbmc, reduction = "pca")
 DimHeatmap(pbmc, dims = 1, cells = 500, balanced = TRUE)
+```
+
+```{r fig.height=10, fig.width=15}
 DimHeatmap(pbmc, dims = 1:15, cells = 500, balanced = TRUE)
 ```
+
 
 # Determine the ‘dimensionality’ of the dataset
 
@@ -176,29 +179,29 @@ top_gene <- top2$gene[seq(1, nrow(top2), 2)]
 top2
 ```
 
-```{r fig.height=30}
+```{r fig.height=20, fig.width=15}
 #cluster0.markers <- FindMarkers(pbmc, ident.1 = 0, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
-VlnPlot(pbmc, features = top_gene, ncol = 5)
+VlnPlot(pbmc, features = top_gene, ncol = 3)
 
 ```
 
 * raw counts
 
-```{r}
+```{r fig.height=20, fig.width=15}
 # you can plot raw counts as well
-VlnPlot(pbmc, features = c("NKG7", "PF4"), slot = "counts", log = TRUE)
+VlnPlot(pbmc, features = top_gene, slot = "counts", log = TRUE, ncol = 3)
 ```
 
 * Feature plot
 
-```{r fig.height=30}
-FeaturePlot(pbmc, features = feature_names)
-FeaturePlot(pbmc, features = feature_names, reduction = "tsne")
+```{r fig.height=20, fig.width=15}
+FeaturePlot(pbmc, features = top_gene, ncol = 3)
+FeaturePlot(pbmc, features = top_gene, reduction = "tsne", ncol = 3)
 ```
 
 * DoHeatmap
 
-```{r}
+```{r fig.height=15, fig.width=10}
 pbmc.markers %>%
     group_by(cluster) %>%
     top_n(n = 10, wt = avg_log2FC) -> top10
@@ -208,10 +211,11 @@ DoHeatmap(pbmc, features = top10$gene) + NoLegend()
 # Assigning cell type identity to clusters
 
 ```{r}
-new.cluster.ids <- c("Naive CD4 T", "CD14+ Mono", "Memory CD4 T", "B", "CD8 T", "FCGR3A+ Mono",
-    "NK", "DC", "Platelet")
-names(new.cluster.ids) <- levels(pbmc)
-pbmc <- RenameIdents(pbmc, new.cluster.ids)
-DimPlot(pbmc, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
+
+# new.cluster.ids <- c("Naive CD4 T", "CD14+ Mono", "Memory CD4 T", "B", "CD8 T", "FCGR3A+ Mono",
+#    "NK", "DC", "Platelet")
+#names(new.cluster.ids) <- levels(pbmc)
+#pbmc <- RenameIdents(pbmc, new.cluster.ids)
+#DimPlot(pbmc, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
 ```
 
