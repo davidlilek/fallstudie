@@ -1,5 +1,5 @@
 ---
-title: "Data New 002"
+title: "Fallstudie - Data New 002"
 author: "Daniel Zimmermann / David Lilek"
 output:
   html_document:
@@ -13,6 +13,25 @@ output:
     number_sections: no
     code_folding: hide
 ---
+
+# Aim
+
+Expanding the work. Find a publicly available data set and apply the same workflow and adapt some of the code to make it work.
+
+# Introduction
+
+To look for new scRNA-seq data the [10xgenomics](10xgenomics.com) homepage was used. The [data-set](https://www.10xgenomics.com/resources/datasets/10k-human-pbmcs-3-ht-v3-1-chromium-x-3-1-high) contains Human peripheral blood mononuclear cells (PBMCs) of a healthy female donor (age: 25-30). For library generation ~16,000 cells (11,996 cells recovered) were sequenced on an Illumina NovaSeq 6000 to a read depth of approximately 40,000 mean reads per cell.
+The [summary](https://cf.10xgenomics.com/samples/cell-exp/6.1.0/10k_PBMC_3p_nextgem_Chromium_X/10k_PBMC_3p_nextgem_Chromium_X_web_summary.html) shows that more than 40,000 reads per cell and app. 2000 genes per cell (median) could be detected. Also the quality scores for sequencing and mapping show quite satisfactory results.
+
+* [DownloadLink](https://cf.10xgenomics.com/samples/cell-exp/6.1.0/10k_PBMC_3p_nextgem_Chromium_X/10k_PBMC_3p_nextgem_Chromium_X_filtered_feature_bc_matrix.tar.gz)
+
+# TO DO
+* What challenges did you face when applying the workflow to a new data set?
+* What code modifications were required?
+* Are the results comparable to the results of the original tutorial, or do they deviate in some unexpected ways?
+* Discuss all the results and interpret them.
+
+# Load libraries
 
 ```{r}
 ###################
