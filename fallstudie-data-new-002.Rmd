@@ -22,7 +22,8 @@ library(dplyr)
 library(Seurat)
 library(patchwork)
 library(ggplot2)
-library(scCATCH)
+library(SingleR)
+library(celldex)
 ```
 
 
@@ -125,7 +126,7 @@ ElbowPlot(pbmc, ndims = 50)
 
 ```{r}
 pbmc <- FindNeighbors(pbmc, dims = 1:36)
-pbmc <- FindClusters(pbmc, resolution = 0.5)
+pbmc <- FindClusters(pbmc, resolution = 0.8)
 # Look at cluster IDs of the first 5 cells
 head(Idents(pbmc), 5)
 ```
@@ -138,7 +139,7 @@ head(Idents(pbmc), 5)
 pbmc <- RunUMAP(pbmc, dims = 1:36)
 # note that you can set `label = TRUE` or use the LabelClusters function to help label
 # individual clusters
-DimPlot(pbmc, reduction = "umap")
+DimPlot(pbmc, reduction = "umap", label = TRUE)
 #UMAPPlot(pbmc)
 #saveRDS(pbmc, file = "./pbmc_tutorial.rds")
 ```
@@ -146,7 +147,7 @@ DimPlot(pbmc, reduction = "umap")
 ```{r}
 #run TSNE
 pbmc <- RunTSNE(pbmc, dims = 1:36)
-TSNEPlot(pbmc)
+DimPlot(pbmc, reduction = "tsne", label = TRUE)
 ```
 
 # Finding differentially expressed features (cluster biomarkers)
@@ -212,10 +213,34 @@ DoHeatmap(pbmc, features = top10$gene) + NoLegend()
 
 ```{r}
 
+exp <- GetAssayData(pbmc, slot = "data", assay = "RNA")
+ref <- HumanPrimaryCellAtlasData()
+clusters <- pbmc$seurat_clusters
+
+cell.annot <- SingleR(test = exp, ref = ref, clusters = clusters, labels = ref$label.fine)
+```
+
+
+```{r}
+pbmc[["Annotation"]] <- cell.annot$labels[match(pbmc$seurat_clusters, rownames(cell.annot))]
+DimPlot(pbmc, reduction = "tsne", group.by = "Annotation", label = TRUE)
 # new.cluster.ids <- c("Naive CD4 T", "CD14+ Mono", "Memory CD4 T", "B", "CD8 T", "FCGR3A+ Mono",
 #    "NK", "DC", "Platelet")
 #names(new.cluster.ids) <- levels(pbmc)
 #pbmc <- RenameIdents(pbmc, new.cluster.ids)
 #DimPlot(pbmc, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
+```
+
+```{r}
+exp <- GetAssayData(pbmc, slot = "data", assay = "RNA")
+ref <- HumanPrimaryCellAtlasData()
+clusters <- pbmc$seurat_clusters
+
+cell.annot <- SingleR(test = exp, ref = ref, labels = ref$label.fine)
+```
+
+```{r fig.width=15}
+pbmc[["Cell_Annotation"]] <- cell.annot$labels
+DimPlot(pbmc, reduction = "tsne", group.by = "Cell_Annotation", label = TRUE)
 ```
 
