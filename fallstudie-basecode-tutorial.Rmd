@@ -1,5 +1,5 @@
-install---
-title: "Fallstudie Basecode Tutorial"
+---
+title: "Fallstudie Basecode Tutorial - Replication"
 author: "Daniel Zimmermann / David Lilek"
 output:
   html_document:
@@ -16,6 +16,20 @@ output:
     code_folding: hide
 ---
 
+# Remark
+
+This file contains a reproduction and discussion of the guided clustering tutorial. Theory behind scRNA-seq and also for the used methods here can be found in the written report.
+
+# Aim
+
+The aim was to reproduce the [guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial.html) from Seurat. 
+
+# Setting up the environment
+
+As stated in the written report the [installation of Seurat](https://satijalab.org/seurat/articles/install.html) was quite easy and comfortable. With the command `sessionInfo()`it is easy to check whether the correct versions for all packages are installed on the used (local) machine.
+
+# Load libraries
+
 ```{r message=FALSE, warning=FALSE}
 ###################
 #load libraries
@@ -25,8 +39,21 @@ library(Seurat)
 library(patchwork)
 ```
 
-
 # Setup the Seurat Object
+
+For loading and setting up the Seurat object the `data.dir`has to be set correctly. This folder contains three files:
+
+* barcodes.tsv: contains the barcodes for the reads
+* genes.tsv: contains 2 columns
+  + column1: ensemble identifiers for the genes resp ensemble gene record (ENSG)    + column2: [gene name](https://en.wikipedia.org/wiki/Gene_nomenclature)
+  + [Link](https://www.ebi.ac.uk/training/online/courses/ensembl-browsing-genomes/navigating-ensembl/investigating-a-gene/)
+* matrix.mtx: 
+  + contains the cellular barcodes 
+  + "Each element of the matrix is the number of UMIs associated with a feature (row) and a barcode (column)"
+  + [Link](https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/output/matrices)
+
+The function `Read10X()` then reads in the output from the cellranger 10x pipeline. It returns a unique molecular identified (UMI) count matrix where the values represent the "molecules for each feature (i.e. gene; row) that are detected in each cell (column)".
+
 
 ```{r message=FALSE, warning=FALSE}
 ############################
@@ -45,6 +72,8 @@ pbmc
 ## QC and selecting cells for further analysis
 
 * Visualize QC metrics as a violin plot
+  + It can be seen that quite a lot of cells fulfil the filter requirements below
+  + The mitochondrial count for mostly all cells is below the 5% threshold.
 
 ```{r}
 # The [[ operator can add columns to object metadata. This is a great place to stash QC stats
@@ -53,7 +82,7 @@ pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
 VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
 ```
 
-* FeatureScatter is typically used to visualize feature-feature relationships, but can be used for anything calculated by the object, i.e. columns in object metadata, PC scores etc.
+The `FeatureScatter()` function is a x,y scatter plot of feature-feature relationships. In this case it can be seen that there's no correlation between mitochondrial counts and RNA count but a direct correlation between number of features and RNA count.
 
 ```{r}
 # FeatureScatter is typically used to visualize feature-feature relationships, but can be used
@@ -63,7 +92,10 @@ plot1 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "percent.mt")
 plot2 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
 plot1 + plot2
 ```
+
 # Filtering
+
+In this case cells with a unique feature counts over 2,500 or less than 200 and cells with less than 5% mitochondrial counts are used for further analysis using the `subset()` function.
 
 ```{r}
 pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
@@ -72,12 +104,16 @@ pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent
 
 # Normalizing the data
 
+For normalization Seurat uses the "LogNormalizes" method. In principle this a normalization per cell (feature expression per  total cell expression). After this step - as default setting - the data are scaled with a factor of 10,000 and this result is than log-transformed. This data can be accessed via `pbmc[["RNA"]]@data`.
+
 ```{r}
 # pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
 pbmc <- NormalizeData(pbmc)
 ```
 
 # Identification of highly variable features (feature selection)
+
+By default 2,000 features are returned by the function `FindVariableFeatures()` which are then used for downstream analysis. The calculation is based on the count data and calculating the variance-to-mean ratio. The red dots in the figure below represent features which are selected for further analysis. The 10 most highly variable genes are labelled additionally in the right plot.
 
 ```{r}
 pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
@@ -93,12 +129,18 @@ plot1 + plot2
 
 # Scaling the data
 
+Especially for PCA the data have to be scaled. This can be done in various ways. In Seurat by default the data are mean-centered and scaled to unit variance. The scaled data can be accessed via `pbmc[["RNA"]]@scale.data`.
+
 ```{r}
 all.genes <- rownames(pbmc)
 pbmc <- ScaleData(pbmc, features = all.genes)
 ```
 
 # Perform linear dimensional reduction
+
+For dimension reduction a PCA is performed on the scaled data. The PC'S are "representing a ‘metafeature’ that combines information across a correlated feature set" as can be seen in the loading-plots. The loadings plots show how the features are weighted per PC.
+`DimHeatmap()`can be used for further exploration of the (heterogeneity in the) data-set and is suitable to select the most important PCs. The rows of the heatmap shows the features. The columns represent the single cells. Both are sorted by their PC scores. In this case especially in the first two PCs quite high heterogeneity can be seen. Some features are either present in one group or in the other group of cells.
+This can be also seen in the `DimPlot` - in this case PC1 vs PC2 is plotted - where some separation between the different cells can be seen.
 
 ```{r}
 pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
@@ -112,6 +154,20 @@ DimHeatmap(pbmc, dims = 1:15, cells = 500, balanced = TRUE)
 
 # Determine the ‘dimensionality’ of the dataset
 
+For the clustering approach afterwards only the most important PCs should be used. To determine those PCs Seurat offers 2 possibilities. 
+
+* JackStraw procedure
+  + random permutation of a subset
+  + for this sub-set PCA scores are calculated and compared to the "original" PCA score 
+  + p value is calculated based on gene association with each PC
+* Ellbow plot - standard deviation of each PC is plotted 
+
+Especially the JackStraw procedure is quite time consuming and the user can select different options - e.g. how man replicates are performed. 
+
+As can be seen in the JackStraw plot 13 PCs should be used. The elbow plot suggests that app. 10 PCs are appropriate. Combining those findings with die heatmap from before 10 PCs were used.
+
+But as stated in the tutorial also other things have to be taken into account and also a comparison of downstream analysis results using different number of PCs should be performed. They also recommend to "err on the higher side" if the number of PCs is chosen.
+
 ```{r}
 # NOTE: This process can take a long time for big datasets, comment out for expediency. More
 # approximate techniques such as those implemented in ElbowPlot() can be used to reduce
@@ -124,6 +180,11 @@ ElbowPlot(pbmc)
 
 # Cluster the cells
 
+For clustering Seurat uses a graph-based approach using the functions `FindNeighbors` and `FindClusters`.
+In the `FindNeighbors` the number of used PCs can be defined using the dims parameter - in this case PC1-PC10 were chosen. The function constructs a "KNN graph based on the euclidean distance in PCA space". The edge weights are then refined.
+In the `FindClusters` function - modularity optimization technique using Louvain algorithm (default) or SLM  algorithm - the resolution is the most important parameter. By increasing this parameter also the number of clusters will increase. Seurat recommends values between 0.4-1.2 for app. 3000 cells. The resolution also increases if the number of cells increases.
+The `ident` function can be used to show the cluster IDs.
+
 ```{r}
 pbmc <- FindNeighbors(pbmc, dims = 1:10)
 pbmc <- FindClusters(pbmc, resolution = 0.5)
@@ -132,6 +193,8 @@ head(Idents(pbmc), 5)
 ```
 
 # Run non-linear dimensional reduction (UMAP/tSNE)
+
+Seurat uses non-linear dimensional reduction techniques (tSNE and UMAP are available) for further visualization and exploration of the data. Seurat recommends to use the same number of PCs for clustering and dimensional reduction. As can be seen 8 different clusters are formed independent if UMAP or tSNE are used.
 
 * UMAP
 ```{r}
@@ -153,6 +216,12 @@ TSNEPlot(pbmc)
 ```
 
 # Finding differentially expressed features (cluster biomarkers)
+
+To find markers (`FindMarkers`) which define a certain cluster DE (differential expression) is used. The parameter ident.1 defines the comparison/identification of cluster markers (positive or negative) compared to the other cells - e.g. ident.1 = 2 means that cluster2 is used - see below.  [LINK](https://satijalab.org/seurat/reference/findmarkers) 
+A more complex example is to find markers distinguishing cluster 5 from cluster 0/2. This can be done using the command `FindMarkers(pbmc, ident.1 = 5, ident.2 = c(0, 3), min.pct = 0.25)` as shown below.
+Also an example to find markers for every cluster compared to all remaining cells and report only the positive ones is shown below.
+
+Setting the `min.pct` argument -  "min.pct argument requires a feature to be detected at a minimum percentage in either of the two groups of cells" - to 0 will increase the running time dramatically.
 
 * find all markers of cluster 2
 ```{r}
@@ -180,20 +249,22 @@ pbmc.markers %>%
     slice_max(n = 2, order_by = avg_log2FC)
 ```
 
+* For testing DE Seurat has several options which can be defined via the parameter `test.use`. In this case ROC test, which "returns the 'classification power' for any individual marker" was chosen.
+
 ```{r}
 cluster0.markers <- FindMarkers(pbmc, ident.1 = 0, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
 VlnPlot(pbmc, features = c("MS4A1", "CD79A"))
 
 ```
 
-* raw counts
+* Also the plotting of the raw counts is possible.
 
 ```{r}
 # you can plot raw counts as well
 VlnPlot(pbmc, features = c("NKG7", "PF4"), slot = "counts", log = TRUE)
 ```
 
-* Feature plot
+* For visualization the marker expression violine plots are used using the `FeaturePlot()` function.
 
 ```{r}
 FeaturePlot(pbmc, features = c("MS4A1", "GNLY", "CD3E", "CD14", "FCER1A", "FCGR3A", "LYZ", "PPBP",
@@ -201,6 +272,10 @@ FeaturePlot(pbmc, features = c("MS4A1", "GNLY", "CD3E", "CD14", "FCER1A", "FCGR3
 ```
 
 * DoHeatmap
+  + The `DoHeatmap()` function generates a heatmap for cells (rows) and features (columns). In this case the top10 markers for each clusters are used.
+  + As expected it can be seen that in each cluster different markers are present.
+  + Remark: in the online tutorial from Seurat they wrote: "DoHeatmap() generates an expression heatmap for given cells and features. In this case, we are plotting the top 20 markers (or all markers if less than 20) for each cluster." -> BUT: in the code from the tutorial they only used 10 markers as in the code below
+
 
 ```{r}
 pbmc.markers %>%
@@ -210,6 +285,8 @@ DoHeatmap(pbmc, features = top10$gene) + NoLegend()
 ```
 
 # Assigning cell type identity to clusters
+
+In the last step markers can be manually assigned to cell types and used for labelling the clusters in UMAP.
 
 ```{r}
 new.cluster.ids <- c("Naive CD4 T", "CD14+ Mono", "Memory CD4 T", "B", "CD8 T", "FCGR3A+ Mono",
