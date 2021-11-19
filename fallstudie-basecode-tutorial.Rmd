@@ -274,6 +274,7 @@ FeaturePlot(pbmc, features = c("MS4A1", "GNLY", "CD3E", "CD14", "FCER1A", "FCGR3
 * DoHeatmap
   + The `DoHeatmap()` function generates a heatmap for cells (rows) and features (columns). In this case the top10 markers for each clusters are used.
   + As expected it can be seen that in each cluster different markers are present.
+  + Remark: in the online tutorial from Seurat they wrote: "DoHeatmap() generates an expression heatmap for given cells and features. In this case, we are plotting the top 20 markers (or all markers if less than 20) for each cluster." -> BUT: in the code from the tutorial they only used 10 markers as in the code below
 
 
 ```{r}
