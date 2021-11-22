@@ -196,6 +196,13 @@ head(Idents(pbmc), 5)
 
 Seurat uses non-linear dimensional reduction techniques (tSNE and UMAP are available) for further visualization and exploration of the data. Seurat recommends to use the same number of PCs for clustering and dimensional reduction. As can be seen 8 different clusters are formed independent if UMAP or tSNE are used.
 
+Compared to the result in the tutorial the results from UMAP differs a bit. Here are 2 statements which we found during our online search:
+* [LINK1](https://stackoverflow.com/questions/67101829/seurat-umap-visualization-result-is-mirrored-after-running-in-two-identical-envi): "The exact location of points on a UMAP plot can chance across different computers and OSs. We do our best to minimize any randomness to the procedure by fixing the random seed, but some fluctuation across systems is inevitable, and nothing to worry about.
+* [LINK2](https://github.com/satijalab/seurat/issues/536)"I wouldn't expect UMAP to be able to pick up R's seed, as these are different environments. Running UMAP within R uses the reticulate package to call UMAP's Python code from within R. Reticulate doesn't automatically pass R's random seed to Python, so there's no reason to expect UMAP to pick up R's random seed. However, this would be a good thing to allow users to set. As for the issue with random_state, that seems to be an issue with UMAP itself, not Seurat."
+
+This can result in slightly different UMAP results. What we found out that using the latest Seurat version it gives the same results, also for other students.
+
+
 * UMAP
 ```{r}
 # If you haven't installed UMAP, you can do so via reticulate::py_install(packages =
