@@ -41,8 +41,6 @@ library(dplyr)
 library(Seurat)
 library(patchwork)
 library(ggplot2)
-library(SingleR)
-library(celldex)
 ```
 
 
@@ -82,19 +80,18 @@ VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3
 plot1 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "percent.mt")
 plot2 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
 plot1 + plot2
-pbmc <- subset(pbmc, subset = nFeature_RNA > 1000 & nFeature_RNA < 4000 & percent.mt < 15)
+pbmc <- subset(pbmc, subset = nFeature_RNA > 500 & nFeature_RNA < 5000 & percent.mt < 15)
 ```
 
 # Normalizing the data
 
 ```{r}
-#pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
 pbmc <- NormalizeData(pbmc)
 ```
 
 # Identification of highly variable features (feature selection)
 
-```{r}
+```{r fig.width=12, fig.height=5}
 pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
 
 # Identify the 10 most highly variable genes
@@ -125,7 +122,7 @@ DimHeatmap(pbmc, dims = 1, cells = 500, balanced = TRUE)
 ```
 
 ```{r fig.height=10, fig.width=15}
-DimHeatmap(pbmc, dims = 1:15, cells = 500, balanced = TRUE)
+DimHeatmap(pbmc, dims = 1:9, cells = 500, balanced = TRUE)
 ```
 
 
@@ -144,8 +141,8 @@ ElbowPlot(pbmc, ndims = 50)
 # Cluster the cells
 
 ```{r}
-pbmc <- FindNeighbors(pbmc, dims = 1:36)
-pbmc <- FindClusters(pbmc, resolution = 0.8)
+pbmc <- FindNeighbors(pbmc, dims = 1:40)
+pbmc <- FindClusters(pbmc, resolution = 0.1)
 # Look at cluster IDs of the first 5 cells
 head(Idents(pbmc), 5)
 ```
@@ -155,7 +152,7 @@ head(Idents(pbmc), 5)
 ```{r}
 # If you haven't installed UMAP, you can do so via reticulate::py_install(packages =
 # 'umap-learn')
-pbmc <- RunUMAP(pbmc, dims = 1:36)
+pbmc <- RunUMAP(pbmc, dims = 1:40)
 # note that you can set `label = TRUE` or use the LabelClusters function to help label
 # individual clusters
 DimPlot(pbmc, reduction = "umap", label = TRUE)
@@ -165,26 +162,11 @@ DimPlot(pbmc, reduction = "umap", label = TRUE)
 
 ```{r}
 #run TSNE
-pbmc <- RunTSNE(pbmc, dims = 1:36)
+pbmc <- RunTSNE(pbmc, dims = 1:40)
 DimPlot(pbmc, reduction = "tsne", label = TRUE)
 ```
 
 # Finding differentially expressed features (cluster biomarkers)
-
-* find all markers of cluster 2
-```{r}
-# find all markers of cluster 2
-cluster2.markers <- FindMarkers(pbmc, ident.1 = 2, min.pct = 0.25)
-head(cluster2.markers, n = 5)
-```
-
-* find all markers distinguishing cluster 5 from clusters 0 and 3
-
-```{r}
-# find all markers distinguishing cluster 5 from clusters 0 and 3
-cluster5.markers <- FindMarkers(pbmc, ident.1 = 5, ident.2 = c(0, 3), min.pct = 0.25)
-head(cluster5.markers, n = 5)
-```
 
 * find markers for every cluster compared to all remaining cells, report only the positive ones
 
@@ -200,9 +182,7 @@ top2
 ```
 
 ```{r fig.height=20, fig.width=15}
-#cluster0.markers <- FindMarkers(pbmc, ident.1 = 0, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
 VlnPlot(pbmc, features = top_gene, ncol = 3)
-
 ```
 
 * raw counts
@@ -231,35 +211,11 @@ DoHeatmap(pbmc, features = top10$gene) + NoLegend()
 # Assigning cell type identity to clusters
 
 ```{r}
+new.cluster.ids <- c("Monocytes", "CD4+ T cells", "CD8+ T cells", "B cells", 
+                     "CD8+ T cells (2)", "NK cells", "Unknown", 
+                     "Myeloid dendritic cells", "Plasmacytoid dendritic cells")
 
-exp <- GetAssayData(pbmc, slot = "data", assay = "RNA")
-ref <- HumanPrimaryCellAtlasData()
-clusters <- pbmc$seurat_clusters
-
-cell.annot <- SingleR(test = exp, ref = ref, clusters = clusters, labels = ref$label.fine)
+names(new.cluster.ids) <- levels(pbmc)
+pbmc <- RenameIdents(pbmc, new.cluster.ids)
+DimPlot(pbmc, reduction = "tsne", label = TRUE, pt.size = 0.5) + NoLegend()
 ```
-
-
-```{r}
-pbmc[["Annotation"]] <- cell.annot$labels[match(pbmc$seurat_clusters, rownames(cell.annot))]
-DimPlot(pbmc, reduction = "tsne", group.by = "Annotation", label = TRUE)
-# new.cluster.ids <- c("Naive CD4 T", "CD14+ Mono", "Memory CD4 T", "B", "CD8 T", "FCGR3A+ Mono",
-#    "NK", "DC", "Platelet")
-#names(new.cluster.ids) <- levels(pbmc)
-#pbmc <- RenameIdents(pbmc, new.cluster.ids)
-#DimPlot(pbmc, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
-```
-
-```{r}
-exp <- GetAssayData(pbmc, slot = "data", assay = "RNA")
-ref <- HumanPrimaryCellAtlasData()
-clusters <- pbmc$seurat_clusters
-
-cell.annot <- SingleR(test = exp, ref = ref, labels = ref$label.fine)
-```
-
-```{r fig.width=15}
-pbmc[["Cell_Annotation"]] <- cell.annot$labels
-DimPlot(pbmc, reduction = "tsne", group.by = "Cell_Annotation", label = TRUE)
-```
-
