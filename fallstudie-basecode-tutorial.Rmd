@@ -18,15 +18,15 @@ output:
 
 # Remark
 
-This file contains a reproduction and discussion of the guided clustering tutorial. Theory behind scRNA-seq and also for the used methods here can be found in the written report.
+This file contains a reproduction and discussion of the guided clustering tutorial. Theory behind scRNA-seq and the methods used here can be found in the written report.
 
 # Aim
 
-The aim was to reproduce the [guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial.html) from Seurat. 
+The aim was to reproduce the [guided clustering tutorial](https://satijalab.org/seurat/articles/pbmc3k_tutorial.html) provided by Seurat. 
 
 # Setting up the environment
 
-As stated in the written report the [installation of Seurat](https://satijalab.org/seurat/articles/install.html) was quite easy and comfortable. With the command `sessionInfo()`it is easy to check whether the correct versions for all packages are installed on the used (local) machine.
+As stated in the written report the [installation of Seurat](https://satijalab.org/seurat/articles/install.html) was straightforward. With the command `sessionInfo()`it is easy to check whether the correct versions for all packages are installed on the used (local) machine.
 
 # Load libraries
 
@@ -52,7 +52,7 @@ For loading and setting up the Seurat object the `data.dir`has to be set correct
   + "Each element of the matrix is the number of UMIs associated with a feature (row) and a barcode (column)"
   + [Link](https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/output/matrices)
 
-The function `Read10X()` then reads in the output from the cellranger 10x pipeline. It returns a unique molecular identified (UMI) count matrix where the values represent the "molecules for each feature (i.e. gene; row) that are detected in each cell (column)".
+The function `Read10X()` then reads in the output from the cellranger 10x pipeline. It returns a unique molecular identified (UMI) count matrix where the values represent the "molecules for each feature (i.e. gene; row) that are detected in each cell (column)". This data is then converted into a `Seurat` object.
 
 
 ```{r message=FALSE, warning=FALSE}
@@ -72,8 +72,9 @@ pbmc
 ## QC and selecting cells for further analysis
 
 * Visualize QC metrics as a violin plot
-  + It can be seen that quite a lot of cells fulfil the filter requirements below
-  + The mitochondrial count for mostly all cells is below the 5% threshold.
+* Based on these plots, the following criteria are chosen:
+  + 200 < nFeature_RNA < 2000
+  + percent.mt < 5 %
 
 ```{r}
 # The [[ operator can add columns to object metadata. This is a great place to stash QC stats
@@ -82,7 +83,7 @@ pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
 VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
 ```
 
-The `FeatureScatter()` function is a x,y scatter plot of feature-feature relationships. In this case it can be seen that there's no correlation between mitochondrial counts and RNA count but a direct correlation between number of features and RNA count.
+The `FeatureScatter()` function is a x,y scatter plot of feature-feature relationships. It can be seen that there is a strong correlation between nFeature_RNA and nCount_RNA, while no correlation between percent.mt and nCount_RNA/nFeature_RNA exists.
 
 ```{r}
 # FeatureScatter is typically used to visualize feature-feature relationships, but can be used
@@ -95,7 +96,7 @@ plot1 + plot2
 
 # Filtering
 
-In this case cells with a unique feature counts over 2,500 or less than 200 and cells with less than 5% mitochondrial counts are used for further analysis using the `subset()` function.
+As mentioned before, only cells with a unique feature count between 200 and 2,500 as well as a percentage of mitochondrial RNA less than 5 % are used for further analysis. This is achieved using the `subset()` function.
 
 ```{r}
 pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
@@ -104,7 +105,7 @@ pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent
 
 # Normalizing the data
 
-For normalization Seurat uses the "LogNormalizes" method. In principle this a normalization per cell (feature expression per  total cell expression). After this step - as default setting - the data are scaled with a factor of 10,000 and this result is than log-transformed. This data can be accessed via `pbmc[["RNA"]]@data`.
+For normalization the "LogNormalize" method is used. First, expression levels are normalized per cell by dividing the number of reads for each feature by the total number of reads. The results are scaled by a factor of 10,000 and finally log transformed (ln(x+1)).
 
 ```{r}
 # pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
@@ -113,9 +114,9 @@ pbmc <- NormalizeData(pbmc)
 
 # Identification of highly variable features (feature selection)
 
-By default 2,000 features are returned by the function `FindVariableFeatures()` which are then used for downstream analysis. The calculation is based on the count data and calculating the variance-to-mean ratio. The red dots in the figure below represent features which are selected for further analysis. The 10 most highly variable genes are labelled additionally in the right plot.
+By default 2,000 features are returned by the function `FindVariableFeatures()` which are then used for downstream analysis. The selection is based on the count data and calculating the variance-to-mean ratio. The red dots in the figure below represent features which are selected for further analysis. The 10 most highly variable genes are labelled additionally in the right plot.
 
-```{r}
+```{r fig.width=12}
 pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
 
 # Identify the 10 most highly variable genes
@@ -129,7 +130,7 @@ plot1 + plot2
 
 # Scaling the data
 
-Especially for PCA the data have to be scaled. This can be done in various ways. In Seurat by default the data are mean-centered and scaled to unit variance. The scaled data can be accessed via `pbmc[["RNA"]]@scale.data`.
+For many data analysis steps, such as PCA, the data has to be scaled first. In Seurat, scaling is by default done by mean-centering the data and scaling to unit variance.
 
 ```{r}
 all.genes <- rownames(pbmc)
