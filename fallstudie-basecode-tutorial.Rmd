@@ -163,11 +163,11 @@ For clustering, only the most important PCs should be used. To determine the opt
   + p value is calculated based on gene association with each PC
 * Elbow plot - standard deviation of each PC is plotted 
 
-Especially the JackStraw procedure is quite time consuming and the user can select different options - e.g. how man replicates are performed. 
+The JackStraw procedure is quite time consuming and the user can select different options - e.g. how many replicates are performed. 
 
-As can be seen in the JackStraw plot 13 PCs should be used. The elbow plot suggests that app. 10 PCs are appropriate. Combining those findings with die heatmap from before 10 PCs were used.
+Based on the Jackstraw plot, 13 PCs should be used. The elbow plot suggests that app. 10 PCs are appropriate. Combining those findings with the heatmaps from before 10 PCs were used.
 
-But as stated in the tutorial, other things also have to be taken into account and a comparison of downstream analysis results using different number of PCs should be performed. They also recommend to "err on the higher side" for the number of PCs is chosen.
+However, as stated in the tutorial, other things also have to be taken into account and a comparison of downstream analysis results using different number of PCs should be performed. They also recommend to "err on the higher side" for the number of PCs is chosen.
 
 ```{r}
 # NOTE: This process can take a long time for big datasets, comment out for expediency. More
@@ -183,7 +183,7 @@ ElbowPlot(pbmc)
 
 For clustering Seurat uses a graph-based approach using the functions `FindNeighbors` and `FindClusters`.
 In the `FindNeighbors` the number of used PCs can be defined using the dims parameter - in this case PC1-PC10 were chosen. The function constructs a "KNN graph based on the euclidean distance in PCA space". The edge weights are then refined.
-In the `FindClusters` function - modularity optimization technique using Louvain algorithm (default) or SLM  algorithm - the resolution is the most important parameter. By increasing this parameter also the number of clusters will increase. Seurat recommends values between 0.4-1.2 for app. 3000 cells. The resolution should also increase if the number of cells increases.
+In the `FindClusters` function - modularity optimization technique using Louvain algorithm (default) or SLM  algorithm - the resolution is the most important parameter. By increasing this parameter also the number of clusters will increase. Seurat recommends values between 0.4-1.2 for app. 3000 cells. The resolution should also be increased if the number of cells increases.
 The `Ident` function can be used to show the cluster IDs.
 
 ```{r}
@@ -201,7 +201,7 @@ Compared to the result in the tutorial the results from UMAP differs a bit. Here
 * [LINK1](https://stackoverflow.com/questions/67101829/seurat-umap-visualization-result-is-mirrored-after-running-in-two-identical-envi): "The exact location of points on a UMAP plot can chance across different computers and OSs. We do our best to minimize any randomness to the procedure by fixing the random seed, but some fluctuation across systems is inevitable, and nothing to worry about.
 * [LINK2](https://github.com/satijalab/seurat/issues/536)"I wouldn't expect UMAP to be able to pick up R's seed, as these are different environments. Running UMAP within R uses the reticulate package to call UMAP's Python code from within R. Reticulate doesn't automatically pass R's random seed to Python, so there's no reason to expect UMAP to pick up R's random seed. However, this would be a good thing to allow users to set. As for the issue with random_state, that seems to be an issue with UMAP itself, not Seurat."
 
-This can result in slightly different UMAP results. What we found out that using the latest Seurat version it gives the same results, also for other students.
+This can result in slightly different UMAP results. We found out that using the latest Seurat version it gives the same results, also for other students.
 
 
 ## UMAP
