@@ -198,6 +198,7 @@ head(Idents(pbmc), 5)
 Seurat uses non-linear dimensional reduction techniques (tSNE and UMAP are available) for further visualization and exploration of the data. Seurat recommends to use the same number of PCs for clustering and dimensional reduction. As can be seen 8 different clusters are formed independent if UMAP or tSNE are used.
 
 Compared to the result in the tutorial the results from UMAP differs a bit. Here are 2 statements which we found during our online search:
+
 * [LINK1](https://stackoverflow.com/questions/67101829/seurat-umap-visualization-result-is-mirrored-after-running-in-two-identical-envi): "The exact location of points on a UMAP plot can chance across different computers and OSs. We do our best to minimize any randomness to the procedure by fixing the random seed, but some fluctuation across systems is inevitable, and nothing to worry about.
 * [LINK2](https://github.com/satijalab/seurat/issues/536)"I wouldn't expect UMAP to be able to pick up R's seed, as these are different environments. Running UMAP within R uses the reticulate package to call UMAP's Python code from within R. Reticulate doesn't automatically pass R's random seed to Python, so there's no reason to expect UMAP to pick up R's random seed. However, this would be a good thing to allow users to set. As for the issue with random_state, that seems to be an issue with UMAP itself, not Seurat."
 
@@ -226,6 +227,7 @@ TSNEPlot(pbmc)
 # Finding differentially expressed features (cluster biomarkers)
 
 To find markers (`FindMarkers`) which define a certain cluster DE (differential expression) is used. The parameter ident.1 defines the comparison/identification of cluster markers (positive or negative) compared to the other cells - e.g. ident.1 = 2 means that cluster2 is used - see below.  [LINK](https://satijalab.org/seurat/reference/findmarkers) 
+
 A more complex example is to find markers distinguishing cluster 5 from cluster 0/2. This can be done using the command `FindMarkers(pbmc, ident.1 = 5, ident.2 = c(0, 3), min.pct = 0.25)` as shown below.
 Also an example to find markers for every cluster compared to all remaining cells and report only the positive ones is shown below.
 
@@ -294,7 +296,7 @@ DoHeatmap(pbmc, features = top10$gene) + NoLegend()
 
 # Assigning cell type identity to clusters
 
-In the last step markers can be manually assigned to cell types and used for labelling the clusters in UMAP.
+In the last step markers can be manually assigned to cell types and used for labelling the clusters in UMAP. This manual assignment is a bit tricky and is discussed in the file where we applied this workflow to a new data-set.
 
 ```{r}
 new.cluster.ids <- c("Naive CD4 T", "CD14+ Mono", "Memory CD4 T", "B", "CD8 T", "FCGR3A+ Mono",
