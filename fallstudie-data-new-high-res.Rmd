@@ -157,7 +157,7 @@ pbmc <- RunUMAP(pbmc, dims = 1:40)
 # individual clusters
 DimPlot(pbmc, reduction = "umap", label = TRUE)
 #UMAPPlot(pbmc)
-#saveRDS(pbmc, file = "./pbmc_tutorial.rds")
+#saveRDS(pbmc, file = "./pbmc_newdata.rds")
 ```
 
 ```{r}
@@ -220,7 +220,7 @@ DoHeatmap(pbmc, features = top10$gene) + NoLegend()
 
 # Assigning cell type identity to clusters
 
-```{r fig.width=12}
+```{r}
 new.cluster.ids <- c("CD14+ Monocytes", 
                      "CD8+ naive T cells", 
                      "CD4+ memory T cells", 
@@ -245,8 +245,31 @@ new.cluster.ids <- c("CD14+ Monocytes",
 
 names(new.cluster.ids) <- levels(pbmc)
 pbmc <- RenameIdents(pbmc, new.cluster.ids)
+```
+
+```{r fig.width=12}
 dimplot1 <- DimPlot(pbmc, reduction = "umap", label = TRUE, pt.size = 0.5, repel = TRUE, label.box = TRUE) + NoLegend()
 
+dimplot1$layers[[3]] <- unserialize(serialize(dimplot1$layers[[2]], NULL))
+
+dimplot1$layers[[2]]$geom_params$seed <- 1234
+dimplot1$layers[[3]]$geom_params$seed <- 1234
+
+dimplot1$layers[[2]]$aes_params$alpha <- 0.5
+dimplot1$layers[[3]]$aes_params$fill <- NA
+
+dimplot1
 
 dimplot2 <- DimPlot(pbmc, reduction = "tsne", label = TRUE, pt.size = 0.5, repel = TRUE, label.box = TRUE) + NoLegend()
+
+dimplot2$layers[[3]] <- unserialize(serialize(dimplot2$layers[[2]], NULL))
+
+dimplot2$layers[[2]]$geom_params$seed <- 1234
+dimplot2$layers[[3]]$geom_params$seed <- 1234
+
+dimplot2$layers[[2]]$aes_params$alpha <- 0.5
+dimplot2$layers[[3]]$aes_params$fill <- NA
+
+dimplot2
 ```
+
