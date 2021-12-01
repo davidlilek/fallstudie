@@ -1,4 +1,4 @@
-# Falllstudie 
+# Fallstudie 
 Authors: Daniel Zimmermann | David Lilek
 
 # Aim
