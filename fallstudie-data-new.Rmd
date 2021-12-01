@@ -1,0 +1,335 @@
+---
+title: "Fallstudie - Data New 002"
+author: "Daniel Zimmermann / David Lilek"
+output:
+  html_document:
+    df_print: paged
+    fig.align: center
+    self_contained: yes 
+    theme: united
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    number_sections: no
+    code_folding: hide
+---
+
+# Aim
+
+Expanding the work. Find a publicly available data set and apply the same workflow and adapt some of the code to make it work.
+
+# Introduction
+
+To look for new scRNA-seq data the [10xgenomics](10xgenomics.com) homepage was used. The [data-set](https://www.10xgenomics.com/resources/datasets/10k-human-pbmcs-3-ht-v3-1-chromium-x-3-1-high) contains Human peripheral blood mononuclear cells (PBMCs) of a healthy female donor (age: 25-30). For library generation ~16,000 cells (11,996 cells recovered) were sequenced on an Illumina NovaSeq 6000 to a read depth of approximately 40,000 mean reads per cell.
+The [summary](https://cf.10xgenomics.com/samples/cell-exp/6.1.0/10k_PBMC_3p_nextgem_Chromium_X/10k_PBMC_3p_nextgem_Chromium_X_web_summary.html) shows that more than 40,000 reads per cell and app. 2000 genes per cell (median) could be detected. The quality scores for sequencing and mapping show satisfactory results.
+
+* [DownloadLink](https://cf.10xgenomics.com/samples/cell-exp/6.1.0/10k_PBMC_3p_nextgem_Chromium_X/10k_PBMC_3p_nextgem_Chromium_X_filtered_feature_bc_matrix.tar.gz)
+
+# Load libraries
+
+```{r load_packages}
+###################
+#load libraries
+###################
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(ggplot2)
+```
+
+
+# Setting up the Seurat Object
+
+```{r import_data, message=FALSE, warning=FALSE}
+############################
+#Setup the Seurat Object
+############################
+
+# Load the PBMC dataset
+pbmc.data <- Read10X(data.dir = "./data_new/002/")
+# Initialize the Seurat object with the raw (non-normalized data).
+pbmc <- CreateSeuratObject(counts = pbmc.data, project = "pbmc10k", min.cells = 3, min.features = 200)
+pbmc
+```
+
+# Pre-processing
+
+## Quality control
+
+Visualize QC metrics as a violin plot
+* The metrics showed a different distribution compared to the tutorial. The cutoff values will therefore have to be adjusted
+
+```{r qc_plots}
+# The [[ operator can add columns to object metadata. This is a great place to stash QC stats
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
+# Visualize QC metrics as a violin plot
+VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+```
+
+Similar to the tutorial, there is a strong correlation between nCount and nFeature
+
+```{r qc_plots2}
+# FeatureScatter is typically used to visualize feature-feature relationships, but can be used
+# for anything calculated by the object, i.e. columns in object metadata, PC scores etc.
+
+plot1 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(pbmc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+```
+
+## Filtering
+
+Based on the violin plots, the following criteria are used:
+* 500 < nFeature_RNA < 5000
+* percent.mt < 15 %
+
+```{r filtering}
+pbmc <- subset(pbmc, subset = nFeature_RNA > 500 & nFeature_RNA < 5000 & percent.mt < 15)
+```
+
+
+## Normalizing the data
+
+```{r normalization}
+pbmc <- NormalizeData(pbmc)
+```
+
+## Identification of highly variable features (feature selection)
+
+```{r variable_features, fig.width=12, fig.height=7, warning=FALSE}
+pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
+
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(pbmc), 10)
+
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(pbmc)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+```
+
+## Scaling the data
+
+```{r scaling}
+all.genes <- rownames(pbmc)
+pbmc <- ScaleData(pbmc, features = all.genes)
+```
+
+# Dimensionality reduction
+## PCA
+
+```{r pca}
+pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
+# Examine and visualize PCA results a few different ways
+print(pbmc[["pca"]], dims = 1:5, nfeatures = 5)
+VizDimLoadings(pbmc, dims = 1:2, reduction = "pca")
+DimPlot(pbmc, reduction = "pca")
+DimHeatmap(pbmc, dims = 1, cells = 500, balanced = TRUE)
+```
+
+```{r pca_heatmap, fig.height=10, fig.width=15}
+DimHeatmap(pbmc, dims = 1:9, cells = 500, balanced = TRUE)
+```
+
+
+## Determine the ‘dimensionality’ of the dataset
+
+Due to the larger dataset, more dimensions were required to capture the full variation of cells. The Jackstraw procedure and the elbow plot produce different results, and the elbow plot is difficult to interpret at a high number of PCs. Therefore, we chose to orient ourselves on the Jackstraw plot and "err on the high side", and used 40 components for clustering.
+
+```{r dimensionality}
+pbmc <- JackStraw(pbmc, num.replicate = 100, dims = 50) # Takes a long time (~ 20 min on my PC)
+pbmc <- ScoreJackStraw(pbmc, dims = 1:50)
+JackStrawPlot(pbmc, dims = 1:40)
+ElbowPlot(pbmc, ndims = 50)
+
+# optionally save the current state of the data
+#saveRDS(pbmc, file = "./pbmc_newdata.rds")
+```
+
+# Cluster the cells
+
+The resolution had to be adjusted to detect the different cell types and subtypes. We found that with a resolution of 0.1, the clusters represented basic cell types (T, B, Mono, etc.). To also capture the various subgroups of cells, a resolution of 1 was used. 21 different clusters were found, compared to 9 in the tutorial dataset.
+
+```{r clustering}
+pbmc <- FindNeighbors(pbmc, dims = 1:40)
+pbmc <- FindClusters(pbmc, resolution = 1)
+# Look at cluster IDs of the first 5 cells
+head(Idents(pbmc), 5)
+```
+
+# Run non-linear dimensional reduction (UMAP/tSNE)
+
+The same number of dimensions as in clustering had to be used here.
+
+```{r umap}
+pbmc <- RunUMAP(pbmc, dims = 1:40)
+# `label = TRUE` to help identify the clusters
+DimPlot(pbmc, reduction = "umap", label = TRUE)
+```
+
+```{r tsne}
+#run TSNE
+pbmc <- RunTSNE(pbmc, dims = 1:40)
+DimPlot(pbmc, reduction = "tsne", label = TRUE)
+```
+Overall, tSNE results in a better separation of clusters in our opinion. Clusters that were not fully separated using umap (clusters 0, 4, 12) were separate here. 
+
+# Finding differentially expressed features (cluster biomarkers)
+
+Find markers for every cluster compared to all remaining cells, report only the positive ones. 
+
+```{r find_markers}
+# find markers for every cluster compared to all remaining cells, report only the positive
+# ones
+pbmc.markers <- FindAllMarkers(pbmc, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+pbmc.markers %>%
+    group_by(cluster) %>%
+    slice_max(n = 10, order_by = avg_log2FC) -> top10
+
+top10
+```
+
+The ten most significant genes for each cluster are printed. By examining these genes, a first indication of the cell type making up some of the clusters can be gained. 
+
+0, 10, 12: Monocytes (CD14, FCGR3A)
+1, 11: CD8+ T cells (CD8A, CD8B)
+6, 7, 17, 19: B cells (IG...)
+8: NK cells (NKG7)
+18: Platelets (PPBP)
+
+# Cluster annotation
+
+To conclusively determine the cell type of each cluster, we researched relevant marker genes for PBMCs. The following assignment is based on the last section of the Seurat tutorial as well as Wang et al., 2021 (https://doi.org/10.1038/s41467-021-25771-5)
+
+First, we we determined the base cell type of each cluster. The following violin plots show the expression of at least one relevant marker gene for each type. 
+
+* CD3D is a marker for all typed of T cells (CD4, CD8, etc.). 1, 2, 3, 9, 11, 14, 5 therefore likely represent T cells. Cluster 12 also shows a significant expression, tough it is lower than all other T cell clusters. This cluster is also not found in the vicinity of the remaining T cells in both uMap and tSNE.
+* NCAM1 is a marker gene for NK cells. 
+* CD19 is a marker gene for B cells.
+* CD14 and FCGR3A (CD16) are marker genes for monocytes. Note that cluster 12 also shows a strong expression of CD14, making it more likely that this cluster is (mainly) made up of monocytes. This would also be consistent with the position of the cluster in the aforementioned plots. 
+* CD1C is a marker gene for myeloid dendritic cells.
+* LILRA4 is a marker gene for plasmocytoid dendritic cells. 
+* CD34 is a marker gene for progenitor/stem cells.
+* PPBP is a marker gene for platelets.
+
+```{r violin_general, fig.width=15, fig.height=15}
+VlnPlot(pbmc, features = c("CD3D", "NCAM1", "CD19", "CD14", "FCGR3A", "CD1C", "LILRA4", "CD34", "PPBP"))
+```
+
+Next, we examined each cell type more closely to determine the subtypes of each cluster.
+
+## Monocytes
+
+Monocytes are usually divided into two main group, CD14+ and CD16+ (FCGR3A), as well as an intermediate type. 
+
+* Clusters 0 and 4 consist of CD14+ Monocytes.
+* Cluster 10 consists of CD16+ Monocytes.
+* Cluster 5 is made up of intermediate Monocytes.
+* Cluster 12 (which as mentioned before exhibits properies of both T cells and Monocytes), seems to be at least partly made up of intermediate Monocytes as well.
+
+```{r violin_mono, fig.width=15, fig.height=5}
+VlnPlot(pbmc, features = c("CD14", "FCGR3A"), idents = c(0,4,5,10,12))
+```
+
+## B cells
+
+Three marker genes were examined for B cells. MS4A1 is expressed by naive and memory B cells, but not by plasma cells. CD27 is expressed by memory B cells and plasma cells and CD38 is only expressed by plasma cells.
+
+* Cluster 6 represents memory B cells.
+* Cluster 7 consists of naive B cells.
+* Cluster 17 shows intermediate properties between naive and memory cells.
+* Cluster 19 consists of plasma cells.
+
+```{r violin_b, fig.width=15, fig.height=5}
+VlnPlot(pbmc, features = c("MS4A1", "CD27", "CD38"), idents = c(6,7,17,19))
+```
+
+## T cells
+
+Six marker genes were considered for determine T cell subtypes. CD4 and CD8A are used to differentiate between the two main subgroups, CD4+ and CD8+ T cells. CCR7 and S100A4 are used to differentiate between naive (only CCR7), central memory (both CCR7 and S100A4) and effector memory cells (only S100A4). Additionally, FOXP3 is a marker gene for CD4+ regulatory T cells, while TRDC indicates gamma delta T cells. 
+
+* Cluster 1 consists of CD8+ naive T cells.
+* Cluster 2 consists of CD4+ memory T cells.
+* Cluster 3 consists of CD4+ naive T cells.
+* Cluster 9 consists of CD8+ effector memory T cells.
+* Cluster 11 consists of CD8* central memory T cells.
+* Cluster 14 consists of gamma delta T cells.
+* Cluster 15 consists of CD4+ regulatory T cells.
+
+```{r violin_t, fig.width=15, fig.height=10}
+VlnPlot(pbmc, features = c("CD4", "CD8A", "CCR7", "S100A4", "FOXP3", "TRDC"), idents = c(1,2,3,9,11,12,14,15))
+```
+
+To visualize the distribution of the main cell types, the expression level of relevant marker are shown in feature plots (for both UMAP and tSNE).
+
+```{r feature_plots, fig.width=15, fig.height=15}
+FeaturePlot(pbmc, features = c("CD3D", "NCAM1", "CD19", "CD14", "FCGR3A", "CD1C", "LILRA4", "CD34", "PPBP"))
+FeaturePlot(pbmc, features = c("CD3D", "NCAM1", "CD19", "CD14", "FCGR3A", "CD1C", "LILRA4", "CD34", "PPBP"), reduction = "tsne")
+```
+
+Expression levels of the ten most significant genes for each cluster are also visualized as a heatmap. Similarities between clusters supports those clusters belonging to the same cell type, e.g. 0, 4, 5, 10, 12 for Monocytes and 1, 2, 3, 9, 11 for T cells.
+
+```{r marker_heatmap, fig.height=17, fig.width=10}
+pbmc.markers %>%
+    group_by(cluster) %>%
+    top_n(n = 10, wt = avg_log2FC) -> top10
+DoHeatmap(pbmc, features = top10$gene) + NoLegend()
+```
+
+# Assigning cell type identity to clusters
+
+Finally, UMAP and tSNE plots were annotated with the previously determined cluster identities. As expected, cells of the same type are generally clustered closely together. 
+
+```{r annotation}
+new.cluster.ids <- c("CD14+ Monocytes", 
+                     "CD8+ naive T cells", 
+                     "CD4+ memory T cells", 
+                     "CD4+ naive T cells", 
+                     "CD14+ Monocytes", 
+                     "Intermediate Monocytes", 
+                     "Memory B cells", 
+                     "Naive B cells", 
+                     "NK cells",
+                     "CD8+ effector memory T cells",
+                     "CD16+ Monocytes",
+                     "CD8+ central memory T cells",
+                     "Unknown, likely Monocytes",
+                     "Myeloid dendritic cells",
+                     "Gamma delta T cells",
+                     "CD4+ regulatory T cells",
+                     "Plasmocytoid dentritic cells",
+                     "Intermediate B cells",
+                     "Platelets",
+                     "Plasma cells",
+                     "Hematopoietic stem cells")
+
+names(new.cluster.ids) <- levels(pbmc)
+pbmc <- RenameIdents(pbmc, new.cluster.ids)
+```
+
+```{r annotation_plots, fig.width=12, fig.height=10}
+dimplot1 <- DimPlot(pbmc, reduction = "umap", label = TRUE, pt.size = 0.5, repel = TRUE, label.box = TRUE) + NoLegend()
+
+dimplot1$layers[[3]] <- unserialize(serialize(dimplot1$layers[[2]], NULL))
+
+dimplot1$layers[[2]]$geom_params$seed <- 1234
+dimplot1$layers[[3]]$geom_params$seed <- 1234
+
+dimplot1$layers[[2]]$aes_params$alpha <- 0.5
+dimplot1$layers[[3]]$aes_params$fill <- NA
+
+dimplot1
+
+dimplot2 <- DimPlot(pbmc, reduction = "tsne", label = TRUE, pt.size = 0.5, repel = TRUE, label.box = TRUE) + NoLegend()
+
+dimplot2$layers[[3]] <- unserialize(serialize(dimplot2$layers[[2]], NULL))
+
+dimplot2$layers[[2]]$geom_params$seed <- 1234
+dimplot2$layers[[3]]$geom_params$seed <- 1234
+
+dimplot2$layers[[2]]$aes_params$alpha <- 0.5
+dimplot2$layers[[3]]$aes_params$fill <- NA
+
+dimplot2
+```
+
